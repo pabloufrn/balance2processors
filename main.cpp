@@ -78,7 +78,7 @@ void imprimirGrafo( Grafo* G) {
 Grafo* carregarDoArquivo(std::string caminhoArquivo) {
 	// Carregar arestas processadores
 	std::ifstream arquivo(caminhoArquivo);
-	std::string linha, processadorUm, processadorDois;
+	std::string processadorUm, processadorDois;
 	std::vector<std::pair<int, int>> tempos;
 	if(!arquivo.good()){
 		std::cerr << "arquivo invalido" << std::endl;
@@ -95,15 +95,38 @@ Grafo* carregarDoArquivo(std::string caminhoArquivo) {
 		incluirAresta(G, 0, v, tempos[v-2].first);
 		incluirAresta(G, v, 1, tempos[v-2].second);
 	}
-	// Carregar arestas de links
 	return G;
-
 }
+void carregarLinksDoArquivo(Grafo* G, std::string caminhoArquivo){
+	std::ifstream arquivo(caminhoArquivo);
+	std::string u, v, peso;
+	std::vector<std::tuple<int, int, int>> links;
+	if(!arquivo.good()){
+		std::cerr << "arquivo invalido" << std::endl;
+		std::exit(0);
+	}
+	while(arquivo.good() and (arquivo.peek() != -1)){
+		getline(arquivo, u, ',');
+		getline(arquivo, v, ',');
+		getline(arquivo, peso);
+		links.push_back(std::make_tuple<int, int>(std::stoi(u), std::stoi(v), std::stoi(peso)));
+	}
+	int ordem = tempos.size() + 2;
+	auto G = construirGrafo(ordem);
+	for ( int v = 2; v < G->ordem; ++v){
+		incluirAresta(G, 0, v, tempos[v-2].first);
+		incluirAresta(G, v, 1, tempos[v-2].second);
+	}
+	return G;
+}
+
+
 
 
 
 int main( int argv, char* args[]) {
 	Grafo* G = carregarDoArquivo("gendata/casos_de_teste/casoquatro_0.csv");
+	carregarLinksDoArquivo(G, "gendata/casos_de_teste/casoquatro_0_links_4_0.csv")
 	imprimirGrafo(G);
 	// destruirGrafo(G);
 	return 0;
