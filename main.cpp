@@ -4,7 +4,7 @@
 #include <utility> 
 #include <tuple>
 #include <unordered_set>
-
+#include <queue>
 
 struct Vertice {
 	int fluxo;
@@ -120,9 +120,12 @@ void carregarLinksDoArquivo(Grafo* G, std::string caminhoArquivo){
 	for ( int l = 0; l < size; ++l){
 		auto link = links[l];
 		incluirAresta(G, std::get<0>(link), std::get<1>(link), std::get<2>(link), 1);
-		incluirAresta(G, std::get<1>(link), std::get<0>(link), std::get<2>(link), 1);
+		// incluirAresta(G, std::get<1>(link), std::get<0>(link), std::get<2>(link), 1);
 	}
 }
+
+// ========================= Cálculos e funções auxiliares
+
 void processadorUmPrimeiro(Grafo* G){
 	auto total = 0u;
 	Vertice* lista = G->listaAdjacencia;
@@ -184,15 +187,79 @@ void processadorDoisPrimeiro(Grafo* G){
 		total << " unidades de tempo." << std::endl;
 }
 
-/* todo: fazer o algoritmo de fluxo máximo e rodar
-*/
+// ========================= Algoritmos de fluxo em redes
+// Ao executar a BFS e passar o fluxo para um nó, atribua uma direção (opcional)
 
+/**/
+int bfs(Grafo* G, std::vector<Vertice*>& pai) {
+	// fonte
+    Vertice *u = nullptr;
+    Vertice *v = nullptr;
+    int fluxoAumento = -1;
+    // Vertice* u = nullptr;
+    // pai 
+    std::fill(pai.begin(), pai.end(), nullptr);
+    //  fila da busca em largura
+    std::queue<Vertice*> fila;
+    // coloca a fonte
+    fila.push(G->listaAdjacencia);
+    while(!fila.empty()){ 
+    	u = fila.front();
+    	v = u->proximo;
+    	// v = vertice v na aresta (u, v)
+    	while(v != nullptr){
+    		if(v->capacidade - v->fluxo > 0 and pai[v->rotulo] == nullptr){
+    			pai[v->rotulo] = u;
+    			if(fluxoAumento == -1)
+    				fluxoAumento = v->capacidade;
+    			else 
+    				fluxoAumento = std::min(fluxoAumento, v->capacidade);
+    			// sumidouro
+    			if(v->rotulo = 1) {
+    				return fluxoAumento;
+    			}
+    			fila.push(v); 
+    		}
+    		v = v->proximo;
+    	}
+    }
+    // não encontrou a fonta
+    return 0;
+}
+
+
+int fluxoMaximo(Grafo* G) {
+	// vetor para backtracking
+	std::vector<Vertice*> pai(G->ordem);
+	// vertices para auxilir o backtracking
+	Vertice* u = nullptr;
+	Vertice* v = nullptr;
+	// variaveis
+    int fluxoMaximo = 0;
+    int fluxoAumento = 0;
+    while (fluxoAumento = buscaLargura(G, pai)) {
+        fluxoMaximo += fluxoAumento;
+        // sumidouro
+        v = pai[1];
+        // fonte
+        while (v->rotulo != 0) {
+        	u = pai[v->rotulo];
+
+            // capacity[u][v] -= fluxoAumento;
+            // capacity[v][u] += fluxoAumento;
+            for()
+            v = u;
+        }
+    }
+    return fluxoMaximo;
+}
 int main( int argv, char* args[]) {
 	Grafo* G = carregarDoArquivo("gendata/casos_de_teste/casoquatro_0.csv");
 	carregarLinksDoArquivo(G, "gendata/casos_de_teste/casoquatro_0_links_4_0.csv");
 	imprimirGrafo(G);
 	processadorUmPrimeiro(G);
 	processadorDoisPrimeiro(G);
+	// std::cout
 	destruirGrafo(G);
 	return 0;
 }
