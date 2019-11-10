@@ -6,75 +6,78 @@
 #include <unordered_set>
 #include <queue>
 
-struct Vertice {
-	int fluxo;
+#define VERTICE_FONTE 0 
+#define VERTICE_SUMIDOURO 1
+
+struct Aresta
+{
 	int capacidade;
-	Vertice* proximo;
-	int rotulo;
+	int fluxo;
 };
 
 struct Grafo {
-	int ordem;
-	int tamanho;
-	Vertice* listaAdjacencia;	
+	size_t ordem;
+	size_t tamanho;
+	Aresta** matrizAdjacencia;	
 };
 
 // ========================= Métodos de grafos
 
-Grafo* construirGrafo( int ordem) {
-	Grafo* G = new Grafo{ordem};
-	G->tamanho = 0;
-	G->listaAdjacencia = new Vertice[ordem];
+
+Grafo* construirGrafo( size_t ordem) {
+	Grafo* G = new Grafo{ordem, 0};
+	G->matrizAdjacencia = new Aresta*[ordem];
 	for (int i = 0; i < ordem; ++i) {
-		G->listaAdjacencia[i].fluxo = 0;
-		G->listaAdjacencia[i].proximo = nullptr;
-		G->listaAdjacencia[i].rotulo = i;
+		G->matrizAdjacencia[i] = new Aresta[ordem];
+		for (int j = 0; j < ordem; ++j){
+			auto aresta = G->matrizAdjacencia[i][j];
+			aresta.fluxo = 0;
+			aresta.capacidade = 0;
+		}
 	}
 	return G;
 }
 /**/
 void destruirGrafo( Grafo* G) {
-	Vertice* lista = G->listaAdjacencia;
+	auto matriz = G->matrizAdjacencia;
 	for (int i = 0; i < G->ordem; ++i) {
-		Vertice* atual = lista[i].proximo;
-		Vertice* proximo = nullptr;
-		while (atual != nullptr) {
-			proximo = atual->proximo;
-			delete atual;
-			atual = proximo;
-		}
+		delete matriz[i];
 	}
-	delete lista;
+	delete matriz;
 	delete G;
 }
 /**/
-void incluirAresta( Grafo* G, int v, int w, int capacidade, int offset = 0) {
-	Vertice* lista = G->listaAdjacencia;
-	Vertice* verticeV = &lista[v];
-	Vertice* novo = new Vertice();
-	for (int i = 0; i < offset; ++i){
-		verticeV = verticeV->proximo;
-	}
-	novo->proximo = verticeV->proximo;
-	verticeV->proximo = novo;
-	novo->fluxo = 0;
-	novo->capacidade = capacidade;
-	novo->rotulo = w;
-	G->tamanho++;
+void incluirAresta( Grafo* G, int v, int w, int capacidade) {
+	G->matrizAdjacencia[v][w].capacidade = capacidade;
 }
 /**/
 void imprimirGrafo( Grafo* G) {
-	Vertice* lista = G->listaAdjacencia;
-	for (int i = 0; i < G->ordem; ++i) {
-		Vertice* v = &lista[i];
-		std::cout << v->rotulo << " -> ";
-		v = v->proximo;
-		while (v != nullptr) {
-			std::cout << v->rotulo << "(" << v->capacidade << ") ";
-			v = v->proximo;
+	auto matriz = G->matrizAdjacencia;
+	std::cout << "Ordem: " << G->ordem << std::endl;
+	std::cout << "Tamanho: " << G->tamanho << std::endl;	
+	std::cout << "Arestas da fonte: ";
+	for ( int i = 0; i < G->ordem; ++i) {
+		if(matriz[VERTICE_FONTE][i].capacidade != 0) {
+			std::cout << "(" << VERTICE_FONTE << ", " << i << ") ";
 		}
-		std::cout << std::endl;
 	}
+	std::cout << std::endl;
+	std::cout << "Arestas para o sumidouro: ";
+	for ( int i = 0; i < G->ordem; ++i) {
+		if(matriz[i][VERTICE_SUMIDOURO].capacidade != 0) {
+			std::cout << "(" << i << ", " << VERTICE_SUMIDOURO << ") ";
+		}
+	}
+	std::cout << std::endl;
+	std::cout << "Demais arestas: ";
+	for ( int i = 2; i < G->ordem; ++i) {
+		for ( int j = 2; j < G->ordem; ++j) {
+			if(matriz[i][j].capacidade != 0) {
+				std::cout << "(" << i << ", " << j << ") ";
+			}
+		}
+	}
+	std::cout << std::endl;
 }
 /**/
 
@@ -97,14 +100,15 @@ Grafo* carregarDoArquivo(std::string caminhoArquivo) {
 	int ordem = tempos.size() + 2;
 	auto G = construirGrafo(ordem);
 	for ( int v = 2; v < G->ordem; ++v){
-		incluirAresta(G, 0, v, tempos[v-2].first);
-		incluirAresta(G, v, 1, tempos[v-2].second);
+		incluirAresta(G, VERTICE_FONTE, v, 10);
+		incluirAresta(G, v, VERTICE_SUMIDOURO, 10);
 	}
 	return G;
 }
+
 void carregarLinksDoArquivo(Grafo* G, std::string caminhoArquivo){
 	std::ifstream arquivo(caminhoArquivo);
-	std::string u, v, peso;
+	std::string u, v, capacidade;
 	std::vector<std::tuple<int, int, int>> links;
 	if(!arquivo.good()){
 		std::cerr << "arquivo invalido" << std::endl;
@@ -113,42 +117,37 @@ void carregarLinksDoArquivo(Grafo* G, std::string caminhoArquivo){
 	while(arquivo.good() and (arquivo.peek() != -1)){
 		getline(arquivo, u, ',');
 		getline(arquivo, v, ',');
-		getline(arquivo, peso);
-		links.push_back(std::make_tuple(std::stoi(u), std::stoi(v), std::stoi(peso)));
+		getline(arquivo, capacidade);
+		links.push_back(std::make_tuple(std::stoi(u), std::stoi(v), std::stoi(capacidade)));
 	}
 	int size = links.size();
 	for ( int l = 0; l < size; ++l){
 		auto link = links[l];
-		incluirAresta(G, std::get<0>(link), std::get<1>(link), std::get<2>(link), 1);
-		// incluirAresta(G, std::get<1>(link), std::get<0>(link), std::get<2>(link), 1);
+		incluirAresta(G, std::get<0>(link), std::get<1>(link), std::get<2>(link));
+		// incluirAresta(G, std::get<1>(link), std::get<0>(link), std::get<2>(link));
 	}
 }
-
+/**/
 // ========================= Cálculos e funções auxiliares
 
 void processadorUmPrimeiro(Grafo* G){
 	auto total = 0u;
-	Vertice* lista = G->listaAdjacencia;
-	Vertice* v = lista->proximo;
+	auto matriz = G->matrizAdjacencia;
 	std::unordered_set<int> processadorUm;
 	std::vector<int> processadorDois;
-	while(v != nullptr){
-		auto tempo = v->capacidade;
+	for ( int v = 0; v < G->ordem; ++v) {
+		auto tempo = matriz[VERTICE_FONTE][v].capacidade;
 		if(tempo == -1){
-			tempo = lista[v->rotulo].proximo->capacidade;
-			processadorDois.push_back(v->rotulo);
+			tempo = matriz[v][VERTICE_SUMIDOURO].capacidade;
+			processadorDois.push_back(v);
 		} else {
-			processadorUm.insert(v->rotulo); 
+			processadorUm.insert(v); 
 		}
 		total += tempo;
-		v = v->proximo;
 	}
 	for ( auto& u: processadorDois){
-		v = lista[u].proximo->proximo;
-		while(v != nullptr){
-			if(processadorUm.count(v->rotulo) > 0)
-				total += v->capacidade;
-			v = v->proximo;
+		for ( int v = 2; v < G->ordem; ++v) {
+			total += matriz[u][v].capacidade + matriz[v][u].capacidade;
 		}
 	}
 	std::cout << "Alocar todos os módulos possíveis em P1: " << 
@@ -156,110 +155,95 @@ void processadorUmPrimeiro(Grafo* G){
 }
 void processadorDoisPrimeiro(Grafo* G){
 	auto total = 0u;
-	Vertice* lista = G->listaAdjacencia;
-	Vertice* v = nullptr;
-	std::vector<int> processadorUm;
+	auto matriz = G->matrizAdjacencia;
 	std::unordered_set<int> processadorDois;
-	for (int i = 2; i < G->ordem; ++i) {
-		v = &lista[i];
-		auto tempo = v->proximo->capacidade;
+	std::vector<int> processadorUm;
+	for ( int v = 0; v < G->ordem; ++v) {
+		auto tempo = matriz[v][VERTICE_SUMIDOURO].capacidade;
 		if(tempo == -1){
-			v = lista[0].proximo;
-			while(v->rotulo != i){
-				v = v->proximo;
-			}
-			tempo = v->capacidade;
-			processadorUm.push_back(v->rotulo);
+			tempo = matriz[VERTICE_FONTE][v].capacidade;
+			processadorUm.push_back(v);
 		} else {
-			processadorDois.insert(v->rotulo);
+			processadorDois.insert(v); 
 		}
 		total += tempo;
 	}
 	for ( auto& u: processadorUm){
-		v = lista[u].proximo->proximo;
-		while(v != nullptr){
-			if(processadorDois.count(v->rotulo) > 0)
-				total += v->capacidade;
-			v = v->proximo;
+		for ( int v = 2; v < G->ordem; ++v) {
+			total += matriz[u][v].capacidade + matriz[v][u].capacidade;
 		}
 	}
-	std::cout << "Alocar todos os módulos possíveis em P2: " << 
+	std::cout << "Alocar todos os módulos possíveis em P1: " << 
 		total << " unidades de tempo." << std::endl;
 }
-
+/**/
 // ========================= Algoritmos de fluxo em redes
 // Ao executar a BFS e passar o fluxo para um nó, atribua uma direção (opcional)
 
-/**/
-int bfs(Grafo* G, std::vector<Vertice*>& pai) {
-	// fonte
-    Vertice *u = nullptr;
-    Vertice *v = nullptr;
+
+int buscaLargura( Grafo* G, std::vector<int>& pai) {
+	auto matriz = G->matrizAdjacencia;
+    int u, v;
     int fluxoAumento = -1;
-    // Vertice* u = nullptr;
     // pai 
-    std::fill(pai.begin(), pai.end(), nullptr);
+    std::fill(pai.begin(), pai.end(), -1);
+    pai[VERTICE_FONTE] = -2;
     //  fila da busca em largura
-    std::queue<Vertice*> fila;
-    // coloca a fonte
-    fila.push(G->listaAdjacencia);
+    std::queue<int> fila;
+    fila.push(VERTICE_FONTE);
     while(!fila.empty()){ 
     	u = fila.front();
-    	v = u->proximo;
+    	fila.pop();
     	// v = vertice v na aresta (u, v)
-    	while(v != nullptr){
-    		if(v->capacidade - v->fluxo > 0 and pai[v->rotulo] == nullptr){
-    			pai[v->rotulo] = u;
+    	for ( int v = 0; v < G->ordem; ++v) {
+    		if(matriz[u][v].capacidade - matriz[u][v].fluxo > 0 and pai[v] == -1){
+    			pai[v] = u;
     			if(fluxoAumento == -1)
-    				fluxoAumento = v->capacidade;
+    				fluxoAumento = matriz[u][v].capacidade - matriz[u][v].fluxo;
     			else 
-    				fluxoAumento = std::min(fluxoAumento, v->capacidade);
-    			// sumidouro
-    			if(v->rotulo = 1) {
+    				fluxoAumento = std::min(fluxoAumento, matriz[u][v].capacidade - matriz[u][v].fluxo);
+    			if(v == VERTICE_SUMIDOURO)
     				return fluxoAumento;
-    			}
     			fila.push(v); 
     		}
-    		v = v->proximo;
     	}
     }
-    // não encontrou a fonta
+    // não encontrou o sumidouro
     return 0;
 }
 
 
-int fluxoMaximo(Grafo* G) {
+int fluxoMaximo( Grafo* G) {
+	auto matriz = G->matrizAdjacencia;
 	// vetor para backtracking
-	std::vector<Vertice*> pai(G->ordem);
+	std::vector<int> pai(G->ordem);
 	// vertices para auxilir o backtracking
-	Vertice* u = nullptr;
-	Vertice* v = nullptr;
+	int u, v;
 	// variaveis
     int fluxoMaximo = 0;
     int fluxoAumento = 0;
     while (fluxoAumento = buscaLargura(G, pai)) {
         fluxoMaximo += fluxoAumento;
-        // sumidouro
-        v = pai[1];
+        v = pai[VERTICE_SUMIDOURO];
         // fonte
-        while (v->rotulo != 0) {
-        	u = pai[v->rotulo];
-
-            // capacity[u][v] -= fluxoAumento;
-            // capacity[v][u] += fluxoAumento;
-            for()
+        while (v != VERTICE_FONTE) {
+        	u = pai[v];
+        	G->matrizAdjacencia[u][v].fluxo -= fluxoAumento;
+        	G->matrizAdjacencia[v][u].fluxo += fluxoAumento;
             v = u;
         }
+        // std::cout << "Atual: (" << u << ", " << v << ")\n";
     }
     return fluxoMaximo;
 }
+
 int main( int argv, char* args[]) {
 	Grafo* G = carregarDoArquivo("gendata/casos_de_teste/casoquatro_0.csv");
 	carregarLinksDoArquivo(G, "gendata/casos_de_teste/casoquatro_0_links_4_0.csv");
 	imprimirGrafo(G);
 	processadorUmPrimeiro(G);
 	processadorDoisPrimeiro(G);
-	// std::cout
+	std::cout << "Fluxo máximo: " << fluxoMaximo(G) << std::endl;
 	destruirGrafo(G);
 	return 0;
 }
